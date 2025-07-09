@@ -2,41 +2,12 @@
 
 import { useState, useEffect } from 'react';
 
-interface LinkData {
-    text: string;
-    href: string;
-    timestamp: string;
-}
-
-interface ScrapedData {
-    title: string;
-    description: string;
-    links: LinkData[];
-    scrapedAt: string;
-}
-
-interface DiffData {
-    type: 'initial' | 'comparison';
-    summary?: {
-        previousCount: number;
-        currentCount: number;
-        newCount: number;
-        removedCount: number;
-        modifiedCount: number;
-    };
-    changes?: {
-        new: LinkData[];
-        removed: LinkData[];
-        modified: LinkData[];
-    };
-    titleChanged?: boolean;
-    descriptionChanged?: boolean;
-}
+import { LinkData, ScrapedData, DataDiff, CronResult } from '@/types/scraped-data';
 
 export default function CronPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isDataLoading, setIsDataLoading] = useState(true);
-    const [cronResult, setCronResult] = useState<any>(null);
+    const [cronResult, setCronResult] = useState<CronResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [currentData, setCurrentData] = useState<ScrapedData | null>(null);
     const [previousData, setPreviousData] = useState<ScrapedData | null>(null);

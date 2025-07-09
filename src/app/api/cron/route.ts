@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 
+import { ScrapedData, DataDiff, LinkData } from '@/types/scraped-data';
 const DATA_DIR = path.join(process.cwd(), 'data');
 const CURRENT_FILE = path.join(DATA_DIR, 'current.json');
 const PREVIOUS_FILE = path.join(DATA_DIR, 'previous.json');
@@ -13,34 +14,15 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 export async function GET(request: Request) {
-    // 验证请求来源 - 支持 Vercel 自动调用和手动调用
+    // 验证请求来源（可选，但推荐用于安全）
     const authHeader = request.headers.get('authorization');
-    const isVercelCron = request.headers.get('x-vercel-cron') === '1';
-    const userAgent = request.headers.get('user-agent') || '';
-
-    // 允许以下情况：
-    // 1. Vercel 自动调用（有 x-vercel-cron header）
-    // 2. User-Agent 包含 Vercel
-    // 3. 正确的 Authorization header
-    const isAuthorized =
-        isVercelCron ||
-        userAgent.includes('Vercel') ||
-        authHeader === `Bearer ${process.env.CRON_SECRET}`;
-
-    if (!isAuthorized) {
-        console.log('Unauthorized access attempt:', {
-            hasAuth: !!authHeader,
-            isVercelCron,
-            userAgent: userAgent.substring(0, 50)
-        });
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 记录调用来源
-    const callSource = isVercelCron ? 'Vercel Cron' : 'Manual';
-    console.log(`Starting web scraping at: ${new Date().toISOString()} (Source: ${callSource})`);
-
     try {
+        console.log('Starting web scraping at:', new Date().toISOString());
+
         // 执行网页爬取
         const scrapedData = await scrapeWebData();
 
@@ -52,8 +34,7 @@ export async function GET(request: Request) {
             message: 'Web scraping completed successfully',
             timestamp: new Date().toISOString(),
             dataCount: scrapedData?.links?.length || 0,
-            diff: diff,
-            source: callSource
+            diff: diff
         });
     } catch (error) {
         console.error('Cron job error:', error);
@@ -111,7 +92,7 @@ async function scrapeWebData() {
     }
 }
 
-async function saveDataAndGetDiff(newData: any) {
+async function saveDataAndGetDiff(newData: ScrapedData): Promise<DataDiff> {
     let previousData = null;
     let currentData = null;
 
@@ -140,7 +121,7 @@ async function saveDataAndGetDiff(newData: any) {
     return diff;
 }
 
-function calculateDiff(previous: any, current: any) {
+function calculateDiff(previous: ScrapedData | null, current: ScrapedData): DataDiff {
     if (!previous) {
         return {
             type: 'initial',
@@ -153,18 +134,18 @@ function calculateDiff(previous: any, current: any) {
     const currLinks = current.links || [];
 
     // 找到新增的链接
-    const newLinks = currLinks.filter((curr: any) =>
-        !prevLinks.some((prev: any) => prev.href === curr.href)
+    const newLinks = currLinks.filter((curr: LinkData) =>
+        !prevLinks.some((prev: LinkData) => prev.href === curr.href)
     );
 
     // 找到删除的链接
-    const removedLinks = prevLinks.filter((prev: any) =>
-        !currLinks.some((curr: any) => curr.href === prev.href)
+    const removedLinks = prevLinks.filter((prev: LinkData) =>
+        !currLinks.some((curr: LinkData) => curr.href === prev.href)
     );
 
     // 找到文本变化的链接
-    const modifiedLinks = currLinks.filter((curr: any) => {
-        const prevLink = prevLinks.find((prev: any) => prev.href === curr.href);
+    const modifiedLinks = currLinks.filter((curr: LinkData) => {
+        const prevLink = prevLinks.find((prev: LinkData) => prev.href === curr.href);
         return prevLink && prevLink.text !== curr.text;
     });
 
@@ -185,4 +166,4 @@ function calculateDiff(previous: any, current: any) {
         titleChanged: previous.title !== current.title,
         descriptionChanged: previous.description !== current.description
     };
-}
+} 

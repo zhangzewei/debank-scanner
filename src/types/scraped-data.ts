@@ -49,3 +49,52 @@ export interface CronResult {
   diff?: DataDiff;
   source?: string;
 }
+
+// DeBank 相关类型
+export interface ProjectInfo {
+  name: string;
+  amount: string;
+  amountUSD: number;
+}
+
+export interface WalletInfo {
+  amount: string;
+  amountUSD: number;
+}
+
+export interface AddressData {
+  address: string;
+  totalBalance: string;
+  totalBalanceUSD: number;
+  wallet: WalletInfo | null;
+  projects: ProjectInfo[];
+  scrapedAt: string;
+}
+
+export interface AddressComparison {
+  address: string;
+  current: AddressData;
+  previous: AddressData | null;
+  changes: {
+    totalBalanceChange: number;
+    totalBalanceChangePercent: number;
+    walletChange: number;
+    projectChanges: Array<{
+      name: string;
+      change: number;
+      changePercent: number;
+    }>;
+  };
+}
+
+export interface DeBankData {
+  [address: string]: AddressData;
+}
+
+export interface DeBankComparison {
+  timestamp: string;
+  totalValue: number;
+  totalValueChange: number;
+  totalValueChangePercent: number;
+  addresses: AddressComparison[];
+}

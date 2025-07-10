@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
+import { JSDOM } from 'jsdom';
 
 import { ScrapedData, DataDiff, LinkData } from '@/types/scraped-data';
 
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
         console.log('Starting web scraping at:', new Date().toISOString());
 
         // 执行网页爬取
-        const scrapedData = await scrapeWebData();
+        const scrapedData = await scrapeWebDataWithFetch();
 
         // 保存数据并获取差异
         const diff = await saveDataAndGetDiff(scrapedData);
@@ -55,50 +55,47 @@ export async function GET(request: Request) {
     }
 }
 
-async function scrapeWebData() {
-    const browser = await chromium.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+async function scrapeWebDataWithFetch() {
+    // 这里替换为您要爬取的网站
+    const targetUrl = process.env.SCRAPE_URL || 'https://example.com';
 
     try {
-        const context = await browser.newContext();
-        const page = await context.newPage();
+        // 使用 fetch 获取页面内容
+        const response = await fetch(targetUrl);
 
-        // 这里替换为您要爬取的网站
-        const targetUrl = process.env.SCRAPE_URL || 'https://example.com';
+        if (!response.ok) {
+            throw new Error(`Failed to fetch ${targetUrl}: ${response.status} ${response.statusText}`);
+        }
 
-        await page.goto(targetUrl, { waitUntil: 'networkidle' });
+        const html = await response.text();
 
-        // 等待页面加载
-        await page.waitForTimeout(2000);
+        // 使用 JSDOM 解析 HTML
+        const dom = new JSDOM(html);
+        const document = dom.window.document;
 
-        // 爬取数据 - 这里是一个示例，您需要根据实际需求修改
-        const data = await page.evaluate(() => {
-            // 示例：爬取页面上的所有链接
-            const links = Array.from(document.querySelectorAll('a')).map(link => ({
-                text: link.textContent?.trim() || '',
-                href: link.href,
-                timestamp: new Date().toISOString()
-            }));
-
-            // 示例：爬取页面标题和描述
-            const title = document.title;
-            const description = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
-
+        // 爬取页面上的所有链接
+        const links = Array.from(document.querySelectorAll('a')).map(link => {
+            const element = link as HTMLAnchorElement;
             return {
-                title,
-                description,
-                links: links.slice(0, 20), // 只取前20个链接
-                scrapedAt: new Date().toISOString()
+                text: element.textContent?.trim() || '',
+                href: element.href || element.getAttribute('href') || '',
+                timestamp: new Date().toISOString()
             };
         });
 
-        await context.close();
-        return data;
+        // 爬取页面标题和描述
+        const title = document.title;
+        const description = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
 
-    } finally {
-        await browser.close();
+        return {
+            title,
+            description,
+            links: links.slice(0, 20), // 只取前20个链接
+            scrapedAt: new Date().toISOString()
+        };
+    } catch (error) {
+        console.error('Error scraping web data:', error);
+        throw error;
     }
 }
 

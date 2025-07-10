@@ -8,12 +8,12 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const CURRENT_FILE = path.join(DATA_DIR, 'current.json');
 const PREVIOUS_FILE = path.join(DATA_DIR, 'previous.json');
 
-// 确保数据目录存在
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
 export async function GET(request: Request) {
+    // 确保数据目录存在
+    if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+
     // 验证请求来源（可选，但推荐用于安全）
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -93,6 +93,11 @@ async function scrapeWebData() {
 }
 
 async function saveDataAndGetDiff(newData: ScrapedData): Promise<DataDiff> {
+    // 确保数据目录存在
+    if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+
     let previousData = null;
     let currentData = null;
 

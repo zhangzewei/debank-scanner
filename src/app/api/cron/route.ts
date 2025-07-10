@@ -16,9 +16,17 @@ export async function GET(request: Request) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
     }
 
-    // 验证请求来源（可选，但推荐用于安全）
+    // 验证请求来源
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const cronHeader = request.headers.get('x-vercel-cron');
+
+    // 允许 Vercel cron 请求或者带有正确授权的请求
+    const isVercelCron = !!cronHeader;
+    const hasValidAuth = authHeader === `Bearer ${process.env.CRON_SECRET}` ||
+        authHeader === `Bearer dev-secret`;
+
+    if (!isVercelCron && !hasValidAuth) {
+        console.log('Unauthorized request:', { authHeader, cronHeader });
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

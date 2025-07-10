@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { ScrapedData, DataDiff, LinkData } from '@/types/scraped-data';
-import { ScrapedData, DataDiff, LinkData } from '@/types/scraped-data';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const CURRENT_FILE = path.join(DATA_DIR, 'current.json');

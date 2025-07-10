@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-import { LinkData, ScrapedData, DataDiff, CronResult } from '@/types/scraped-data';
+import { ScrapedData, DataDiff, CronResult } from '@/types/scraped-data';
 
 export default function CronPage() {
     const [isLoading, setIsLoading] = useState(false);
@@ -11,7 +11,7 @@ export default function CronPage() {
     const [error, setError] = useState<string | null>(null);
     const [currentData, setCurrentData] = useState<ScrapedData | null>(null);
     const [previousData, setPreviousData] = useState<ScrapedData | null>(null);
-    const [diff, setDiff] = useState<DiffData | null>(null);
+    const [diff, setDiff] = useState<DataDiff | null>(null);
 
     // 加载数据
     const loadData = async () => {

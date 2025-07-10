@@ -2,24 +2,30 @@
 
 ## 🚀 5 分钟快速启动
 
-### 1. 本地测试
+### 1. 安装依赖
 
-1. 启动开发服务器：
+```bash
+npm install
+npx playwright install
+```
+
+### 2. 本地运行
+
+1. 创建 `.env.local` 文件并设置环境变量：
+   ```
+   CRON_SECRET=your-secret-key-123
+   SCRAPE_URL=https://example.com
+   NEXT_PUBLIC_SCRAPE_URL=https://example.com
+   ```
+
+2. 启动开发服务器：
    ```bash
    npm run dev
    ```
 
-2. 打开浏览器访问：`http://localhost:3000/cron`
+3. 打开浏览器访问：`http://localhost:3000/cron`
 
-3. 点击"手动触发爬取"按钮进行测试
-
-### 2. 部署到 Vercel
-
-1. 推送代码到 GitHub
-2. 在 Vercel 中导入项目
-3. 设置环境变量：
-   - `CRON_SECRET`: 设置一个密钥（例如：`my-secret-123`）
-   - `SCRAPE_URL`: 设置要爬取的网站 URL
+4. 点击"手动触发爬取"按钮进行测试
 
 ### 3. 自定义爬取内容
 
@@ -89,18 +95,18 @@ function calculateDiff(previous: any, current: any) {
 
 ## 🔧 常见问题
 
-### Q: 如何修改爬取频率？
-A: 编辑 `vercel.json` 文件中的 `schedule` 字段：
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron",
-      "schedule": "0 */2 * * *"  // 每2小时运行一次
-    }
-  ]
-}
+### Q: 如何设置定时运行？
+A: 使用系统的 cron 或任务计划程序：
+
+**Linux/Mac**:
+```bash
+crontab -e
+# 添加以下内容（每天午夜运行）
+0 0 * * * curl -X GET -H "Authorization: Bearer your-secret-key" http://localhost:3000/api/cron
 ```
+
+**Windows**:
+创建一个批处理文件并使用任务计划程序定时运行。
 
 ### Q: 如何处理需要登录的网站？
 A: 在爬取前添加登录逻辑：
@@ -186,12 +192,11 @@ interface ScrapedData {
 2. **设置合理延迟**: 避免对服务器造成过大压力
 3. **错误处理**: 始终包含 try-catch 块
 4. **数据验证**: 验证爬取的数据格式
-5. **监控日志**: 定期检查 Vercel 函数日志
+5. **监控日志**: 定期检查日志
 
 ## 📚 更多资源
 
 - [Playwright 官方文档](https://playwright.dev/)
-- [Vercel Cron Jobs 文档](https://vercel.com/docs/cron-jobs)
 - [完整配置说明](./CRON_SETUP.md)
 
 祝您使用愉快！🎉 

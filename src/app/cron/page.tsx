@@ -93,7 +93,7 @@ export default function CronPage() {
                     </button>
                 </div>
                 <p className="text-sm text-gray-600 mt-2">
-                    当前配置：每天午夜 (0点) 运行一次 | 目标网站：{process.env.NEXT_PUBLIC_SCRAPE_URL || 'https://example.com'}
+                    当前配置：使用本地服务器运行 | 目标网站：{process.env.NEXT_PUBLIC_SCRAPE_URL || 'https://example.com'}
                 </p>
             </div>
 

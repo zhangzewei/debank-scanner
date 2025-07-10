@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
+import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
-import { JSDOM } from 'jsdom';
 
 import { ScrapedData, DataDiff, LinkData } from '@/types/scraped-data';
 
-// 使用 /tmp 目录而不是 process.cwd()
-const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'data') : path.join(process.cwd(), 'data');
+// 使用本地数据目录
+const DATA_DIR = path.join(process.cwd(), 'data');
 const CURRENT_FILE = path.join(DATA_DIR, 'current.json');
 const PREVIOUS_FILE = path.join(DATA_DIR, 'previous.json');
 
@@ -16,17 +16,13 @@ export async function GET(request: Request) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
     }
 
-    // 验证请求来源
+    // 简化的授权检查，只检查本地开发密钥
     const authHeader = request.headers.get('authorization');
-    const cronHeader = request.headers.get('x-vercel-cron');
-
-    // 允许 Vercel cron 请求或者带有正确授权的请求
-    const isVercelCron = !!cronHeader;
-    const hasValidAuth = authHeader === `Bearer ${process.env.CRON_SECRET}` ||
+    const isAuthorized = authHeader === `Bearer ${process.env.CRON_SECRET}` ||
         authHeader === `Bearer dev-secret`;
 
-    if (!isVercelCron && !hasValidAuth) {
-        console.log('Unauthorized request:', { authHeader, cronHeader });
+    if (!isAuthorized) {
+        console.log('Unauthorized request');
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -34,7 +30,7 @@ export async function GET(request: Request) {
         console.log('Starting web scraping at:', new Date().toISOString());
 
         // 执行网页爬取
-        const scrapedData = await scrapeWebDataWithFetch();
+        const scrapedData = await scrapeWebData();
 
         // 保存数据并获取差异
         const diff = await saveDataAndGetDiff(scrapedData);
@@ -55,47 +51,50 @@ export async function GET(request: Request) {
     }
 }
 
-async function scrapeWebDataWithFetch() {
-    // 这里替换为您要爬取的网站
-    const targetUrl = process.env.SCRAPE_URL || 'https://example.com';
+async function scrapeWebData() {
+    const browser = await chromium.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
 
     try {
-        // 使用 fetch 获取页面内容
-        const response = await fetch(targetUrl);
+        const context = await browser.newContext();
+        const page = await context.newPage();
 
-        if (!response.ok) {
-            throw new Error(`Failed to fetch ${targetUrl}: ${response.status} ${response.statusText}`);
-        }
+        // 这里替换为您要爬取的网站
+        const targetUrl = process.env.SCRAPE_URL || 'https://example.com';
 
-        const html = await response.text();
+        await page.goto(targetUrl, { waitUntil: 'networkidle' });
 
-        // 使用 JSDOM 解析 HTML
-        const dom = new JSDOM(html);
-        const document = dom.window.document;
+        // 等待页面加载
+        await page.waitForTimeout(2000);
 
-        // 爬取页面上的所有链接
-        const links = Array.from(document.querySelectorAll('a')).map(link => {
-            const element = link as HTMLAnchorElement;
-            return {
-                text: element.textContent?.trim() || '',
-                href: element.href || element.getAttribute('href') || '',
+        // 爬取数据 - 这里是一个示例，您需要根据实际需求修改
+        const data = await page.evaluate(() => {
+            // 示例：爬取页面上的所有链接
+            const links = Array.from(document.querySelectorAll('a')).map(link => ({
+                text: link.textContent?.trim() || '',
+                href: link.href,
                 timestamp: new Date().toISOString()
+            }));
+
+            // 示例：爬取页面标题和描述
+            const title = document.title;
+            const description = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+
+            return {
+                title,
+                description,
+                links: links.slice(0, 20), // 只取前20个链接
+                scrapedAt: new Date().toISOString()
             };
         });
 
-        // 爬取页面标题和描述
-        const title = document.title;
-        const description = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+        await context.close();
+        return data;
 
-        return {
-            title,
-            description,
-            links: links.slice(0, 20), // 只取前20个链接
-            scrapedAt: new Date().toISOString()
-        };
-    } catch (error) {
-        console.error('Error scraping web data:', error);
-        throw error;
+    } finally {
+        await browser.close();
     }
 }
 

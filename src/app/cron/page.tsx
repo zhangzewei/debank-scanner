@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 
 import { ScrapedData, DataDiff, CronResult } from '@/types/scraped-data';
-
 export default function CronPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isDataLoading, setIsDataLoading] = useState(true);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { DeBankData, AddressData } from '@/types/scraped-data';
+import { DeBankData, AddressData, DeBankComparison } from '@/types/scraped-data';
 
 // 动态导入 ECharts 组件以避免 SSR 问题
 const ReactECharts = dynamic(() => import('echarts-for-react'), {
@@ -18,6 +18,7 @@ interface DashboardData {
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [comparison, setComparison] = useState<DeBankComparison | null>(null);
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
 
@@ -25,9 +26,23 @@ export default function Dashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/debank/data');
-      const result = await response.json();
-      setData(result);
+
+      // 并行加载数据和对比信息
+      const [dataResponse, comparisonResponse] = await Promise.all([
+        fetch('/api/debank/data'),
+        fetch('/api/debank/comparison')
+      ]);
+
+      const dataResult = await dataResponse.json();
+      setData(dataResult);
+
+      // 如果对比数据获取成功，则设置对比数据
+      if (comparisonResponse.ok) {
+        const comparisonResult = await comparisonResponse.json();
+        if (comparisonResult.success) {
+          setComparison(comparisonResult.data);
+        }
+      }
     } catch (error) {
       console.error('加载数据失败:', error);
       setData({
@@ -50,6 +65,8 @@ export default function Dashboard() {
       const result = await response.json();
 
       if (result.success) {
+        // 保存对比数据
+        setComparison(result.data);
         await loadData(); // 重新加载数据
       }
     } catch (error) {
@@ -142,6 +159,27 @@ export default function Dashboard() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
+  // 格式化变化数据
+  const formatChange = (change: number, showSign: boolean = true) => {
+    if (change === 0) return '$0';
+    const sign = showSign ? (change > 0 ? '+' : '') : '';
+    return `${sign}${formatNumber(change)}`;
+  };
+
+  // 格式化变化百分比
+  const formatChangePercent = (percent: number) => {
+    if (percent === 0) return '0%';
+    const sign = percent > 0 ? '+' : '';
+    return `${sign}${percent.toFixed(2)}%`;
+  };
+
+  // 获取变化样式类
+  const getChangeStyle = (change: number) => {
+    if (change > 0) return 'text-green-600';
+    if (change < 0) return 'text-red-600';
+    return 'text-gray-600';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -187,6 +225,22 @@ export default function Dashboard() {
               <div className="text-4xl font-bold text-green-600">
                 {formatNumber(getTotalValue())}
               </div>
+
+              {/* 显示变化信息 */}
+              {comparison && comparison.totalValueChange !== 0 && (
+                <div className="mt-4 flex justify-center items-center gap-4">
+                  <div className={`text-lg font-medium ${getChangeStyle(comparison.totalValueChange)}`}>
+                    {formatChange(comparison.totalValueChange)}
+                  </div>
+                  <div className={`text-sm ${getChangeStyle(comparison.totalValueChange)}`}>
+                    ({formatChangePercent(comparison.totalValueChangePercent)})
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    与上次对比
+                  </div>
+                </div>
+              )}
+
               <p className="text-gray-500 mt-2">
                 更新时间: {new Date(Object.values(data.data)[0]?.scrapedAt).toLocaleString()}
               </p>
@@ -224,55 +278,105 @@ export default function Dashboard() {
 
             {/* 地址详情 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {Object.values(data.data).map((address: AddressData) => (
-                <div key={address.address} className="bg-white rounded-lg p-6 shadow-sm">
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      {formatAddress(address.address)}
-                    </h3>
-                    <div className="text-2xl font-bold text-green-600">
-                      {formatNumber(address.totalBalanceUSD)}
-                    </div>
-                  </div>
+              {Object.values(data.data).map((address: AddressData) => {
+                // 查找对应的对比数据
+                const addressComparison = comparison?.addresses.find(addr => addr.address === address.address);
 
-                  {/* 钱包信息 */}
-                  {address.wallet && (
-                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                      <h4 className="font-medium text-blue-900 mb-1">💳 钱包</h4>
-                      <div className="text-blue-700 font-semibold">
-                        {formatNumber(address.wallet.amountUSD)}
+                return (
+                  <div key={address.address} className="bg-white rounded-lg p-6 shadow-sm">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        {formatAddress(address.address)}
+                      </h3>
+                      <div className="text-2xl font-bold text-green-600">
+                        {formatNumber(address.totalBalanceUSD)}
                       </div>
-                    </div>
-                  )}
 
-                  {/* 项目信息 */}
-                  {address.projects.length > 0 && (
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">🔸 项目</h4>
-                      <div className="space-y-2">
-                        {address.projects
-                          .filter(project => project.amountUSD > 0)
-                          .sort((a, b) => b.amountUSD - a.amountUSD)
-                          .map((project, index) => (
-                            <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                              <span className="font-medium text-gray-700">{project.name}</span>
-                              <span className="font-semibold text-gray-900">
-                                {formatNumber(project.amountUSD)}
-                              </span>
+                      {/* 地址级别的变化信息 */}
+                      {addressComparison && addressComparison.changes.totalBalanceChange !== 0 && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <div className={`text-sm font-medium ${getChangeStyle(addressComparison.changes.totalBalanceChange)}`}>
+                            {formatChange(addressComparison.changes.totalBalanceChange)}
+                          </div>
+                          <div className={`text-xs ${getChangeStyle(addressComparison.changes.totalBalanceChange)}`}>
+                            ({formatChangePercent(addressComparison.changes.totalBalanceChangePercent)})
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 钱包信息 */}
+                    {address.wallet && (
+                      <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                        <h4 className="font-medium text-blue-900 mb-1">💳 钱包</h4>
+                        <div className="text-blue-700 font-semibold">
+                          {formatNumber(address.wallet.amountUSD)}
+                        </div>
+
+                        {/* 钱包变化信息 */}
+                        {addressComparison && addressComparison.changes.walletChange !== 0 && (
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className={`text-xs font-medium ${getChangeStyle(addressComparison.changes.walletChange)}`}>
+                              {formatChange(addressComparison.changes.walletChange)}
                             </div>
-                          ))}
+                            <div className="text-xs text-blue-600">
+                              钱包变化
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* 完整地址 */}
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <p className="text-xs text-gray-500">
-                      地址: {address.address}
-                    </p>
+                    {/* 项目信息 */}
+                    {address.projects.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2">🔸 项目</h4>
+                        <div className="space-y-2">
+                          {address.projects
+                            .filter(project => project.amountUSD > 0)
+                            .sort((a, b) => b.amountUSD - a.amountUSD)
+                            .map((project, index) => {
+                              // 查找对应的项目变化信息
+                              const projectChange = addressComparison?.changes.projectChanges.find(
+                                p => p.name === project.name
+                              );
+
+                              return (
+                                <div key={index} className="p-2 bg-gray-50 rounded">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium text-gray-700">{project.name}</span>
+                                    <span className="font-semibold text-gray-900">
+                                      {formatNumber(project.amountUSD)}
+                                    </span>
+                                  </div>
+
+                                  {/* 项目变化信息 */}
+                                  {projectChange && projectChange.change !== 0 && (
+                                    <div className="mt-1 flex items-center gap-2">
+                                      <div className={`text-xs font-medium ${getChangeStyle(projectChange.change)}`}>
+                                        {formatChange(projectChange.change)}
+                                      </div>
+                                      <div className={`text-xs ${getChangeStyle(projectChange.change)}`}>
+                                        ({formatChangePercent(projectChange.changePercent)})
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 完整地址 */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">
+                        地址: {address.address}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}

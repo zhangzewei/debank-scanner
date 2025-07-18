@@ -1,10 +1,9 @@
-import { chromium, Page } from 'playwright';
-import { AddressData, ProjectInfo, WalletInfo, DeBankData, DeBankComparison, AddressComparison } from '@/types/scraped-data';
-import fs from 'fs';
-import path from 'path';
+const { chromium } = require('playwright');
+const fs = require('fs');
+const path = require('path');
 
 // 从环境变量获取地址列表，如果没有设置则使用默认值
-const getAddresses = (): string[] => {
+const getAddresses = () => {
     const envAddresses = process.env.DEBANK_ADDRESSES;
 
     if (envAddresses) {
@@ -32,15 +31,26 @@ const ADDRESSES = getAddresses();
 const SCRAPE_DELAY = parseInt(process.env.SCRAPE_DELAY || '2000', 10);
 const SCRAPE_TIMEOUT = parseInt(process.env.SCRAPE_TIMEOUT || '30000', 10);
 
+// 获取数据目录路径
+function getDataDir() {
+    // 在Electron环境中使用传递的用户数据目录
+    if (process.env.ELECTRON_USER_DATA) {
+        return path.join(process.env.ELECTRON_USER_DATA, 'data');
+    }
+
+    // 非Electron环境，使用当前工作目录
+    return path.join(process.cwd(), 'data');
+}
+
 // 解析金额字符串为数字
-function parseAmount(amountStr: string): number {
+function parseAmount(amountStr) {
     if (!amountStr) return 0;
     const cleanStr = amountStr.replace(/[$,]/g, '');
     return parseFloat(cleanStr) || 0;
 }
 
 // 爬取单个地址数据
-async function scrapeAddress(page: Page, address: string): Promise<AddressData> {
+async function scrapeAddress(page, address) {
     console.log(`🔍 正在爬取地址: ${address}`);
 
     await page.goto(`https://debank.com/profile/${address}`, {
@@ -75,7 +85,7 @@ async function scrapeAddress(page: Page, address: string): Promise<AddressData> 
     await page.waitForSelector('[class*="Portfolio_defiItem"]', { timeout: SCRAPE_TIMEOUT });
 
     // 获取钱包信息
-    let wallet: WalletInfo | null = null;
+    let wallet = null;
     try {
         const walletElements = await page.locator('[class*="TokenWallet_container"]').all();
         if (walletElements.length > 0) {
@@ -94,7 +104,7 @@ async function scrapeAddress(page: Page, address: string): Promise<AddressData> 
     }
 
     // 获取项目信息
-    const projects: ProjectInfo[] = [];
+    const projects = [];
     try {
         const projectElements = await page.locator('[class*="Project_project"]').all();
 
@@ -149,12 +159,12 @@ async function scrapeAddress(page: Page, address: string): Promise<AddressData> 
 }
 
 // 爬取所有地址数据
-export async function scrapeAllAddresses(): Promise<DeBankData> {
+async function scrapeAllAddresses() {
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    const data: DeBankData = {};
+    const data = {};
 
     try {
         for (const address of ADDRESSES) {
@@ -175,9 +185,12 @@ export async function scrapeAllAddresses(): Promise<DeBankData> {
 }
 
 // 保存数据到文件
-export async function saveData(data: DeBankData): Promise<void> {
-    const dataDir = path.join(process.cwd(), 'data');
+async function saveData(data) {
+    const dataDir = getDataDir();
+    console.log(`📁 数据目录: ${dataDir}`);
+
     if (!fs.existsSync(dataDir)) {
+        console.log(`📁 创建数据目录: ${dataDir}`);
         fs.mkdirSync(dataDir, { recursive: true });
     }
 
@@ -195,8 +208,8 @@ export async function saveData(data: DeBankData): Promise<void> {
 }
 
 // 加载历史数据
-export function loadLatestData(): DeBankData | null {
-    const dataDir = path.join(process.cwd(), 'data');
+function loadLatestData() {
+    const dataDir = getDataDir();
     const latestPath = path.join(dataDir, 'debank-latest.json');
 
     if (fs.existsSync(latestPath)) {
@@ -207,15 +220,39 @@ export function loadLatestData(): DeBankData | null {
     return null;
 }
 
+// 加载倒数第二个历史数据用于比较
+function loadPreviousData() {
+    const dataDir = getDataDir();
+
+    try {
+        const files = fs.readdirSync(dataDir)
+            .filter(file => file.startsWith('debank-data-') && file.endsWith('.json'))
+            .sort()
+            .reverse();
+
+        // 如果有多个历史文件，取倒数第二个作为对比
+        if (files.length > 1) {
+            const previousFile = files[1];
+            const previousPath = path.join(dataDir, previousFile);
+            const previousContent = fs.readFileSync(previousPath, 'utf-8');
+            return JSON.parse(previousContent);
+        }
+    } catch (error) {
+        console.error('加载历史数据失败:', error);
+    }
+
+    return null;
+}
+
 // 比较数据变化
-export function compareData(current: DeBankData, previous: DeBankData | null): DeBankComparison {
+function compareData(current, previous) {
     const currentTotal = Object.values(current).reduce((sum, addr) => sum + addr.totalBalanceUSD, 0);
     const previousTotal = previous ? Object.values(previous).reduce((sum, addr) => sum + addr.totalBalanceUSD, 0) : 0;
 
     const totalValueChange = currentTotal - previousTotal;
     const totalValueChangePercent = previousTotal > 0 ? (totalValueChange / previousTotal) * 100 : 0;
 
-    const addresses: AddressComparison[] = Object.values(current).map(currentAddr => {
+    const addresses = Object.values(current).map(currentAddr => {
         const previousAddr = previous?.[currentAddr.address] || null;
         const currentValue = currentAddr.totalBalanceUSD;
         const previousValue = previousAddr?.totalBalanceUSD || 0;
@@ -262,10 +299,10 @@ export function compareData(current: DeBankData, previous: DeBankData | null): D
 }
 
 // 主函数：执行完整的爬取和比较流程
-export async function runDeBankScraper(): Promise<DeBankComparison> {
+async function runDeBankScraper() {
     console.log('🚀 开始 DeBank 数据爬取...');
 
-    // 加载历史数据
+    // 加载历史数据用于比较
     const previousData = loadLatestData();
 
     // 爬取新数据
@@ -274,7 +311,7 @@ export async function runDeBankScraper(): Promise<DeBankComparison> {
     // 保存数据
     await saveData(currentData);
 
-    // 比较数据
+    // 比较数据（新数据 vs 之前的最新数据）
     const comparison = compareData(currentData, previousData);
 
     console.log('✅ DeBank 数据爬取完成');
@@ -284,4 +321,13 @@ export async function runDeBankScraper(): Promise<DeBankComparison> {
     }
 
     return comparison;
-} 
+}
+
+module.exports = {
+    runDeBankScraper,
+    scrapeAllAddresses,
+    saveData,
+    loadLatestData,
+    loadPreviousData,
+    compareData
+}; 

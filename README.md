@@ -41,6 +41,85 @@ A comprehensive web scraping system for monitoring DeBank portfolio data across 
 5. **Run Your First Scrape**
    Click the "刷新数据" (Refresh Data) button to start scraping
 
+## 故障排除 (Troubleshooting)
+
+### 常见安装问题
+
+#### 1. 数据目录未创建问题
+如果在运行应用时遇到 "ENOENT: no such file or directory, mkdir '/data'" 错误，需要手动创建数据目录：
+
+**Mac/Linux用户：**
+```bash
+# 在项目根目录下创建data文件夹
+mkdir -p data
+
+# 或者在用户数据目录创建
+mkdir -p ~/Library/Application\ Support/debank-scanner/data
+```
+
+**检查数据目录权限：**
+```bash
+# 确保目录有写入权限
+chmod 755 data
+ls -la data
+```
+
+#### 2. Playwright浏览器版本不匹配问题
+如果遇到类似 "chromium_headless_shell-1179 not found" 但实际安装的是 "chromium_headless_shell-1180" 的错误：
+
+**解决方案1 - 重新安装Playwright (推荐)：**
+```bash
+# 完全清理并重新安装Playwright
+npx playwright uninstall --all
+npx playwright install chromium
+```
+
+**解决方案2 - 手动创建符号链接：**
+```bash
+# 找到实际的浏览器安装目录
+find ~/Library/Caches/ms-playwright -name "chromium*" -type d
+
+# 创建符号链接（将实际版本号替换为程序需要的版本号）
+cd ~/Library/Caches/ms-playwright
+ln -s chromium_headless_shell-1180 chromium_headless_shell-1179
+```
+
+**解决方案3 - 强制重新下载：**
+```bash
+# 强制重新下载浏览器
+npx playwright install --force chromium
+```
+
+**验证安装：**
+```bash
+# 检查浏览器是否正确安装
+npx playwright --version
+npx playwright list
+```
+
+#### 3. 其他常见问题
+
+**内存不足错误：**
+```bash
+# 增加Node.js内存限制
+export NODE_OPTIONS="--max-old-space-size=4096"
+npm run dev
+```
+
+**端口占用问题：**
+```bash
+# 检查端口占用
+lsof -i :3000
+# 或使用其他端口
+npm run dev -- -p 3001
+```
+
+**权限问题：**
+```bash
+# Mac用户可能需要授予应用网络访问权限
+# 系统偏好设置 > 安全性与隐私 > 隐私 > 完全磁盘访问权限
+```
+
 ## API Endpoints
 
 ### Scrape Data
@@ -289,6 +368,46 @@ The scraper uses CSS selectors to extract data from DeBank:
 3. Install Playwright browsers with `npx playwright install`
 4. Copy `.env.example` to `.env.local` and configure your addresses
 5. Start with `npm run dev`
+
+### Electron Desktop Application
+
+**安装和运行：**
+```bash
+# 开发模式运行Electron应用
+npm run electron-dev
+
+# 构建桌面应用
+npm run build-electron
+
+# 构建Mac应用安装包
+npm run build-mac
+```
+
+**Electron应用故障排除：**
+
+1. **数据目录问题：**
+   - Electron应用将数据存储在：`~/Library/Application Support/debank-scanner/data/`
+   - 如果数据目录不存在，应用会自动创建
+   - 如果遇到权限问题，手动创建：
+     ```bash
+     mkdir -p ~/Library/Application\ Support/debank-scanner/data
+     chmod 755 ~/Library/Application\ Support/debank-scanner/data
+     ```
+
+2. **Playwright浏览器问题：**
+   - Electron应用需要完整的Playwright环境
+   - 确保运行：`npx playwright install chromium`
+   - 如果遇到版本不匹配，按上述故障排除步骤处理
+
+3. **应用启动问题：**
+   ```bash
+   # 清理并重新构建
+   rm -rf out dist
+   npm run build-electron
+   
+   # 检查Electron版本
+   npx electron --version
+   ```
 
 ### Production
 1. Build the application with `npm run build`

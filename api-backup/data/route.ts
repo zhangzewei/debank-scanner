@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { ScrapedData, DataDiff, LinkData } from '@/types/scraped-data';
 
+export const dynamic = 'force-static';
+
 // 使用 /tmp 目录而不是 process.cwd()
 const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'data') : path.join(process.cwd(), 'data');
 const CURRENT_FILE = path.join(DATA_DIR, 'current.json');

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { DeBankData, AddressData, DeBankComparison } from '@/types/scraped-data';
+import ElectronAPI from '@/lib/electron-api';
 
 // 动态导入 ECharts 组件以避免 SSR 问题
 const ReactECharts = dynamic(() => import('echarts-for-react'), {
@@ -28,20 +29,16 @@ export default function Dashboard() {
       setLoading(true);
 
       // 并行加载数据和对比信息
-      const [dataResponse, comparisonResponse] = await Promise.all([
-        fetch('/api/debank/data'),
-        fetch('/api/debank/comparison')
+      const [dataResult, comparisonResult] = await Promise.all([
+        ElectronAPI.getDebankData(),
+        ElectronAPI.getComparison()
       ]);
 
-      const dataResult = await dataResponse.json();
       setData(dataResult);
 
       // 如果对比数据获取成功，则设置对比数据
-      if (comparisonResponse.ok) {
-        const comparisonResult = await comparisonResponse.json();
-        if (comparisonResult.success) {
-          setComparison(comparisonResult.data);
-        }
+      if (comparisonResult.success) {
+        setComparison(comparisonResult.data);
       }
     } catch (error) {
       console.error('加载数据失败:', error);
@@ -57,12 +54,12 @@ export default function Dashboard() {
 
   // 启动爬取
   const startScraping = async () => {
+    console.log('startScraping function called');
     try {
       setScraping(true);
-      const response = await fetch('/api/debank/scrape', {
-        method: 'POST'
-      });
-      const result = await response.json();
+      console.log('About to call ElectronAPI.scrapeDeBank');
+      const result = await ElectronAPI.scrapeDeBank();
+      console.log('scrapeDeBank result:', result);
 
       if (result.success) {
         // 保存对比数据
@@ -256,7 +253,7 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
               <h3 className="text-lg font-medium text-gray-900 mb-2">暂无数据</h3>
-              <p className="text-gray-500 mb-4">点击"刷新数据"按钮开始爬取 DeBank 数据</p>
+              <p className="text-gray-500 mb-4">点击&ldquo;刷新数据&rdquo;按钮开始爬取 DeBank 数据</p>
             </div>
             <button
               onClick={startScraping}

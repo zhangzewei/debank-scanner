@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { DeBankComparison } from '@/types/scraped-data';
+import ElectronAPI from '@/lib/electron-api';
 
 export default function TestPage() {
     const [comparison, setComparison] = useState<DeBankComparison | null>(null);
@@ -10,8 +12,7 @@ export default function TestPage() {
     useEffect(() => {
         const loadComparison = async () => {
             try {
-                const response = await fetch('/api/debank/comparison');
-                const result = await response.json();
+                const result = await ElectronAPI.getComparison();
                 if (result.success) {
                     setComparison(result.data);
                 }
@@ -80,7 +81,7 @@ export default function TestPage() {
             </div>
 
             <div className="mt-4">
-                <a href="/" className="text-blue-600 hover:text-blue-800">← 返回主页</a>
+                <Link href="/" className="text-blue-600 hover:text-blue-800">← 返回主页</Link>
             </div>
         </div>
     );

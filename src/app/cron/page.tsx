@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
 import { ScrapedData, DataDiff, CronResult } from '@/types/scraped-data';
+import ElectronAPI from '@/lib/electron-api';
 export default function CronPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isDataLoading, setIsDataLoading] = useState(true);
@@ -16,8 +16,7 @@ export default function CronPage() {
     const loadData = async () => {
         setIsDataLoading(true);
         try {
-            const response = await fetch('/api/data');
-            const data = await response.json();
+            const data = await ElectronAPI.getDebankData();
 
             if (data.success) {
                 setCurrentData(data.current);
@@ -38,16 +37,9 @@ export default function CronPage() {
         setCronResult(null);
 
         try {
-            const response = await fetch('/api/cron', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || 'dev-secret'}`,
-                },
-            });
+            const data = await ElectronAPI.runCron();
 
-            const data = await response.json();
-
-            if (!response.ok) {
+            if (!data.success) {
                 throw new Error(data.error || 'Failed to trigger cron job');
             }
 

@@ -42,3 +42,12 @@ next-env.d.ts
 
 # scraped data
 /data
+
+# electron
+/dist/
+/release/
+*.dmg
+*.exe
+*.deb
+*.rpm
+*.AppImage

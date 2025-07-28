@@ -61,20 +61,6 @@ curl http://localhost:3000/api/debank/data
 curl http://localhost:3000/api/cron
 ```
 
-## Monitored Addresses
-
-The system monitors these 9 wallet addresses:
-
-- 0xd100b6645eb05bd88ff6491cb9f1c2688948b838 (Primary - $1,271,339)
-- 0x0f2876396a71fe09a175d97f83744377be9b6363 ($55,579)
-- 0x966969b95b76e97f09dc84ce6987b45bf34993b6 ($87,138)
-- 0x818bbe45b55c1a933f55dc9eb36b2a899586367e ($519,843)
-- 0xfa6e9a3432822833c38db67116f445d97efba894 ($67,474)
-- 0x368dd33f71552cac1524d6d79f3aa8d85d3cdc1d ($43,578)
-- 0x54932f94b8041d999fd6e20b09a6c406b7959636 ($50,192)
-- 0x318d9d9200e4049e0c439eb361486d70e0124237 ($71,951)
-- 0x36a9edd2b2b39b5278b241bd61e887bef885dea3 ($23,779)
-
 **Total Portfolio Value: $2,190,873**
 
 ## Dashboard Features
@@ -212,7 +198,7 @@ The system uses environment variables for configuration. Copy `.env.example` to 
 
 ```bash
 # Required: DeBank wallet addresses (comma-separated)
-DEBANK_ADDRESSES=0xd100b6645eb05bd88ff6491cb9f1c2688948b838,0x0f2876396a71fe09a175d97f83744377be9b6363
+DEBANK_ADDRESSES=
 
 # Optional: Scraping configuration
 SCRAPE_DELAY=2000          # Delay between requests (milliseconds)
